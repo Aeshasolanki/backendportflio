@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const app = express();
 
@@ -22,26 +23,28 @@ const corsOptions = {
     }
   },
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
+app.options("/send-email", cors(corsOptions));
 app.use(express.json());
 
-// Nodemailer transporter using Gmail (TLS 587)
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 587,        // Use 587 for TLS (works on Render)
-  secure: false,    // false for TLS
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
-  tls: {
-    ciphers: "TLSv1.2",
-  },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
+  tls: { ciphers: "TLSv1.2" },
 });
+
+const resendApiKey = process.env.RESEND_API_KEY;
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 // Test route
 app.get("/", (req, res) => {
@@ -59,26 +62,36 @@ app.post("/send-email", async (req, res) => {
     });
   }
 
+  const html = `
+    <div style="font-family: Arial; line-height: 1.6;">
+      <h2>New Inquiry Received</h2>
+      <p><strong>Name:</strong> ${name}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone:</strong> ${phone}</p>
+      <p><strong>Message:</strong><br>${message.replace(/\n/g, "<br>")}</p>
+      <hr />
+      <p style="font-size:12px;color:gray;">Sent from your portfolio contact form</p>
+    </div>
+  `;
+
   try {
-    await transporter.sendMail({
-      from: `"Portfolio Contact" <${process.env.GMAIL_USER}>`,
-      replyTo: email,
-      to: "siddharthdeveloperindia@gmail.com", // Your receiving email
-      subject: `📩 New Inquiry from ${name}`,
-      html: `
-        <div style="font-family: Arial; line-height: 1.6;">
-          <h2>New Inquiry Received</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Phone:</strong> ${phone}</p>
-          <p><strong>Message:</strong><br>${message.replace(/\n/g, "<br>")}</p>
-          <hr />
-          <p style="font-size:12px;color:gray;">
-            Sent from your portfolio contact form
-          </p>
-        </div>
-      `,
-    });
+    if (resend) {
+      await resend.emails.send({
+        from: "Portfolio <onboarding@resend.dev>",
+        to: "siddharthdeveloperindia@gmail.com",
+        reply_to: email,
+        subject: `📩 New Inquiry from ${name}`,
+        html,
+      });
+    } else {
+      await transporter.sendMail({
+        from: `"Portfolio Contact" <${process.env.GMAIL_USER}>`,
+        replyTo: email,
+        to: "siddharthdeveloperindia@gmail.com",
+        subject: `📩 New Inquiry from ${name}`,
+        html,
+      });
+    }
 
     console.log("✅ Email sent successfully");
 
