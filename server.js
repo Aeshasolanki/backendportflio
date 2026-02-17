@@ -93,7 +93,7 @@ app.post("/send-email", async (req, res) => {
         from: "Portfolio <onboarding@resend.dev>",
         to: "siddharthdeveloperindia@gmail.com",
         reply_to: email,
-        subject: `📩 New Inquiry from ${name}`,
+        subject: `📩 New Inquiry from`,
         html,
       });
     } else {
@@ -101,7 +101,7 @@ app.post("/send-email", async (req, res) => {
         from: `"Portfolio Contact" <${process.env.GMAIL_USER}>`,
         replyTo: email,
         to: "siddharthdeveloperindia@gmail.com",
-        subject: `📩 New Inquiry from ${name}`,
+        subject: `📩 New Inquiry from`,
         html,
       });
     }
