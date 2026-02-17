@@ -62,6 +62,19 @@ app.post("/send-email", async (req, res) => {
     });
   }
 
+  const devFake =
+    process.env.ALLOW_DEV_FAKE_SEND === "true" &&
+    !resend &&
+    !process.env.GMAIL_APP_PASSWORD &&
+    process.env.NODE_ENV !== "production";
+
+  if (devFake) {
+    console.log("ℹ️ Dev fake send enabled: returning success without sending email");
+    return res.status(200).json({
+      message: "Email sent successfully ✅ (dev mode)",
+    });
+  }
+
   const html = `
     <div style="font-family: Arial; line-height: 1.6;">
       <h2>New Inquiry Received</h2>
