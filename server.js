@@ -7,7 +7,26 @@ const nodemailer = require("nodemailer");
 const app = express();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://siddharthmakadiyasite.web.app",
+  "https://siddharthmakadiyasite.firebaseapp.com",
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json());
 
 // Nodemailer transporter using Gmail (TLS 587)
