@@ -10,12 +10,17 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Gmail transporter
+// Nodemailer transporter using Gmail (TLS 587)
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,        // Use 587 for TLS (works on Render)
+  secure: false,    // false for TLS
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
+  },
+  tls: {
+    ciphers: "TLSv1.2",
   },
 });
 
@@ -39,11 +44,11 @@ app.post("/send-email", async (req, res) => {
     await transporter.sendMail({
       from: `"Portfolio Contact" <${process.env.GMAIL_USER}>`,
       replyTo: email,
-      to: "siddharthdeveloperindia@gmail.com",
-      subject: `New Inquiry from ${name}`,
+      to: "siddharthdeveloperindia@gmail.com", // Your receiving email
+      subject: `📩 New Inquiry from ${name}`,
       html: `
         <div style="font-family: Arial; line-height: 1.6;">
-          <h2>📩 New Inquiry Received</h2>
+          <h2>New Inquiry Received</h2>
           <p><strong>Name:</strong> ${name}</p>
           <p><strong>Email:</strong> ${email}</p>
           <p><strong>Phone:</strong> ${phone}</p>
@@ -67,6 +72,7 @@ app.post("/send-email", async (req, res) => {
 
     res.status(500).json({
       message: "Failed to send email ❌",
+      error: error.message,
     });
   }
 });
@@ -75,5 +81,5 @@ app.post("/send-email", async (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
