@@ -1,130 +1,29 @@
+const express = require("express");
+const { Pool } = require("pg");
+const cors = require("cors");
 require("dotenv").config();
 
-const express = require("express");
-const cors = require("cors");
-const nodemailer = require("nodemailer");
-const { Resend } = require("resend");
-
 const app = express();
-
-// Middleware
-const allowedOrigins = [
-  "http://localhost:3000",
-  "https://siddharthmakadiyasite.web.app",
-  "https://siddharthmakadiyasite.firebaseapp.com",
-];
-
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(null, false);
-    }
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-};
-
-app.use(cors(corsOptions));
-app.options("/send-email", cors(corsOptions));
+app.use(cors());
 app.use(express.json());
 
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 15000,
-  tls: { ciphers: "TLSv1.2" },
+// Neon DB connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
-// Test route
-app.get("/", (req, res) => {
-  res.send("Server running 🚀");
-});
-
-// Send email route
-app.post("/send-email", async (req, res) => {
-  const { name, email, phone, message } = req.body;
-
-  // Validation
-  if (!name || !email || !phone || !message) {
-    return res.status(400).json({
-      message: "All fields are required",
-    });
-  }
-
-  const devFake =
-    process.env.ALLOW_DEV_FAKE_SEND === "true" &&
-    !resend &&
-    !process.env.GMAIL_APP_PASSWORD &&
-    process.env.NODE_ENV !== "production";
-
-  if (devFake) {
-    console.log("ℹ️ Dev fake send enabled: returning success without sending email");
-    return res.status(200).json({
-      message: "Email sent successfully ✅ (dev mode)",
-    });
-  }
-
-  const html = `
-    <div style="font-family: Arial; line-height: 1.6;">
-      <h2>New Inquiry Received</h2>
-      <p><strong>Name:</strong> ${name}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Phone:</strong> ${phone}</p>
-      <p><strong>Message:</strong><br>${message.replace(/\n/g, "<br>")}</p>
-      <hr />
-      <p style="font-size:12px;color:gray;">Sent from your portfolio contact form</p>
-    </div>
-  `;
-
+// Get all blogs
+app.get("/blogs", async (req, res) => {
   try {
-    if (resend) {
-      await resend.emails.send({
-        from: "Portfolio <onboarding@resend.dev>",
-        to: "siddharthdeveloperindia@gmail.com",
-        reply_to: email,
-        subject: `📩 New Inquiry from`,
-        html,
-      });
-    } else {
-      await transporter.sendMail({
-        from: `"Portfolio Contact" <${process.env.GMAIL_USER}>`,
-        replyTo: email,
-        to: "siddharthdeveloperindia@gmail.com",
-        subject: `📩 New Inquiry from`,
-        html,
-      });
-    }
-
-    console.log("✅ Email sent successfully");
-
-    res.status(200).json({
-      message: "Email sent successfully ✅",
-    });
-
-  } catch (error) {
-    console.error("❌ Email error:", error);
-
-    res.status(500).json({
-      message: "Failed to send email ❌",
-      error: error.message,
-    });
+    const result = await pool.query("SELECT * FROM blogs ORDER BY date DESC");
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
+// Serve images
+app.use("/icons", express.static("public/icons"));
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
